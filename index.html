@@ -1173,6 +1173,8 @@
             document.getElementById('in-area').textContent = inArea;
             document.getElementById('out-area').textContent = outArea;
             document.getElementById('marker-count').textContent = total;
+            
+            console.log('Statistik diperbarui:', {total, inArea, outArea});
         }
         
         // Coba muat marker dari localStorage
@@ -1180,12 +1182,20 @@
             const savedMarkers = localStorage.getItem('customerMarkers');
             if (savedMarkers) {
                 try {
-                    markers = JSON.parse(savedMarkers);
+                    const parsedMarkers = JSON.parse(savedMarkers);
+                    
+                    // Pastikan data yang dimuat adalah array
+                    if (!Array.isArray(parsedMarkers)) {
+                        throw new Error('Format data tidak valid');
+                    }
+                    
+                    markers = parsedMarkers;
                     renderMarkerList();
                     placeMarkersOnMap();
                     updateStats();
                 } catch (e) {
                     console.error('Error loading markers:', e);
+                    showNotification('Error memuat data. Silakan import ulang.', true);
                     markers = [];
                 }
             }
@@ -1194,8 +1204,15 @@
         // Simpan marker ke localStorage
         function saveMarkers() {
             try {
-                localStorage.setItem('customerMarkers', JSON.stringify(markers));
+                // Simpan tanpa properti mapMarker
+                const markersToSave = markers.map(marker => {
+                    const { mapMarker, ...rest } = marker;
+                    return rest;
+                });
+                
+                localStorage.setItem('customerMarkers', JSON.stringify(markersToSave));
                 updateStats();
+                console.log('Markers disimpan:', markersToSave.length);
             } catch (e) {
                 console.error('Error saving markers:', e);
                 if (e.name === 'QuotaExceededError') {
@@ -1275,6 +1292,7 @@
                         markers[index].lat = position.lat;
                         markers[index].lng = position.lng;
                         saveMarkers();
+                        renderMarkerList(); // Perbarui daftar setelah perubahan lokasi
                         showNotification('Lokasi pelanggan diperbarui!');
                     }
                 });
@@ -1636,19 +1654,31 @@
         
         // Fungsi untuk export data ke file JSON
         function exportData() {
-            const data = localStorage.getItem('customerMarkers');
-            if (!data) {
+            if (markers.length === 0) {
                 showNotification('Tidak ada data untuk diexport', true);
                 return;
             }
             
             try {
+                // Buat salinan tanpa properti mapMarker
+                const dataToExport = markers.map(marker => {
+                    const { mapMarker, ...rest } = marker;
+                    return rest;
+                });
+                
+                const data = JSON.stringify(dataToExport, null, 2);
                 const blob = new Blob([data], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `pelanggan-tigaraksa-hub2-${new Date().toISOString().slice(0,10)}.json`;
+                
+                // Format tanggal yang benar untuk nama file
+                const now = new Date();
+                const dateStr = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+                const timeStr = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
+                
+                a.download = `pelanggan-tigaraksa-hub2-${dateStr}_${timeStr}.json`;
                 document.body.appendChild(a);
                 a.click();
                 
@@ -1656,7 +1686,7 @@
                 setTimeout(() => {
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
-                    showNotification('Data berhasil diexport!');
+                    showNotification(`${markers.length} data berhasil diexport!`);
                 }, 100);
             } catch (e) {
                 console.error('Export error:', e);
@@ -1674,27 +1704,44 @@
                     
                     // Validasi data
                     if (!Array.isArray(data)) {
-                        throw new Error('Format data tidak valid');
+                        throw new Error('Format data tidak valid. Data harus berupa array.');
                     }
                     
-                    // Validasi minimal satu item
-                    if (data.length === 0) {
-                        throw new Error('File tidak berisi data');
-                    }
+                    // Hapus semua marker yang ada
+                    markers.forEach(marker => {
+                        if (marker.mapMarker) {
+                            map.removeLayer(marker.mapMarker);
+                        }
+                    });
                     
-                    // Validasi setiap item
-                    const isValid = data.every(item => 
-                        item.id && item.name && item.lat && item.lng
-                    );
+                    // Reset array markers
+                    markers = [];
                     
-                    if (!isValid) {
-                        throw new Error('Struktur data tidak sesuai');
-                    }
+                    // Tambahkan semua marker baru
+                    data.forEach(markerData => {
+                        // Pastikan ada properti minimal
+                        if (markerData.name && markerData.lat && markerData.lng) {
+                            markers.push({
+                                id: markerData.id || Date.now(),
+                                name: markerData.name,
+                                address: markerData.address || '',
+                                type: markerData.type || 'home',
+                                note: markerData.note || '',
+                                lat: markerData.lat,
+                                lng: markerData.lng,
+                                date: markerData.date || new Date().toLocaleString()
+                            });
+                        }
+                    });
                     
-                    // Simpan data dan refresh
-                    localStorage.setItem('customerMarkers', JSON.stringify(data));
-                    loadMarkers();
-                    showNotification(`${data.length} data berhasil diimport!`);
+                    // Simpan ke localStorage
+                    saveMarkers();
+                    
+                    // Perbarui tampilan
+                    placeMarkersOnMap();
+                    renderMarkerList();
+                    
+                    showNotification(`${markers.length} data berhasil diimport!`);
                     
                     // Tutup modal
                     closeModal();
@@ -1795,7 +1842,7 @@
                 <div class="instructions">
                     <h3><i class="fas fa-info-circle"></i> Informasi:</h3>
                     <ul>
-                        <li>File berisi semua data pelanggan</li>
+                        <li>File berisi semua ${markers.length} data pelanggan</li>
                         <li>Data dapat diimport kembali ke aplikasi</li>
                         <li>Simpan file di tempat aman</li>
                     </ul>
