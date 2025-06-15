@@ -647,6 +647,152 @@
             font-size: 1.1rem;
         }
         
+        /* Modal untuk import/export */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        
+        .modal-header h2 {
+            color: #ff5500;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #777;
+            transition: all 0.3s;
+        }
+        
+        .close-modal:hover {
+            color: #ff5500;
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .file-input-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .file-input-label:hover {
+            border-color: #ff5500;
+            background: #fff7f4;
+        }
+        
+        .file-input-label i {
+            font-size: 2rem;
+            color: #ff5500;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-name {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #666;
+            text-align: center;
+        }
+        
+        .export-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .export-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .export-option:hover {
+            background: #e9ecef;
+        }
+        
+        .export-option i {
+            font-size: 1.2rem;
+            color: #ff5500;
+        }
+        
+        .export-info {
+            flex: 1;
+        }
+        
+        .export-info h3 {
+            font-size: 1rem;
+            color: #333;
+            margin-bottom: 3px;
+        }
+        
+        .export-info p {
+            font-size: 0.85rem;
+            color: #777;
+        }
+        
         /* Desktop Layout */
         @media (min-width: 768px) {
             .container {
@@ -910,6 +1056,29 @@
                     </div>
                 </div>
                 
+                <!-- Tambahkan panel baru untuk import/export -->
+                <div class="panel">
+                    <h2><i class="fas fa-database"></i> Kelola Data</h2>
+                    <div class="btn-group">
+                        <button id="export-btn" class="btn">
+                            <i class="fas fa-file-export"></i> Export Data
+                        </button>
+                        <button id="import-btn" class="btn btn-secondary">
+                            <i class="fas fa-file-import"></i> Import Data
+                        </button>
+                    </div>
+                    
+                    <div class="instructions" style="margin-top: 15px;">
+                        <h3><i class="fas fa-info-circle"></i> Petunjuk Backup:</h3>
+                        <ol>
+                            <li><strong>Export data</strong> secara berkala untuk cadangan</li>
+                            <li>File disimpan dalam format <strong>JSON</strong></li>
+                            <li>Simpan file di tempat aman</li>
+                            <li>Data akan hilang jika cache browser dibersihkan</li>
+                        </ol>
+                    </div>
+                </div>
+                
                 <div class="instructions">
                     <h3><i class="fas fa-graduation-cap"></i> Petunjuk Akurasi:</h3>
                     <ol>
@@ -919,6 +1088,25 @@
                         <li>Data tersimpan otomatis di browser Anda</li>
                     </ol>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal untuk import/export -->
+    <div class="modal" id="data-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-database"></i> <span id="modal-title">Kelola Data</span></h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Konten akan diisi secara dinamis -->
+            </div>
+            
+            <div class="modal-footer">
+                <button id="cancel-btn" class="btn btn-secondary">Batal</button>
+                <button id="action-btn" class="btn">Proses</button>
             </div>
         </div>
     </div>
@@ -1446,6 +1634,184 @@
             map.zoomOut();
         });
         
+        // Fungsi untuk export data ke file JSON
+        function exportData() {
+            const data = localStorage.getItem('customerMarkers');
+            if (!data) {
+                showNotification('Tidak ada data untuk diexport', true);
+                return;
+            }
+            
+            try {
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pelanggan-tigaraksa-hub2-${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showNotification('Data berhasil diexport!');
+                }, 100);
+            } catch (e) {
+                console.error('Export error:', e);
+                showNotification('Gagal mengexport data', true);
+            }
+        }
+        
+        // Fungsi untuk import data dari file JSON
+        function importData(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Validasi data
+                    if (!Array.isArray(data)) {
+                        throw new Error('Format data tidak valid');
+                    }
+                    
+                    // Validasi minimal satu item
+                    if (data.length === 0) {
+                        throw new Error('File tidak berisi data');
+                    }
+                    
+                    // Validasi setiap item
+                    const isValid = data.every(item => 
+                        item.id && item.name && item.lat && item.lng
+                    );
+                    
+                    if (!isValid) {
+                        throw new Error('Struktur data tidak sesuai');
+                    }
+                    
+                    // Simpan data dan refresh
+                    localStorage.setItem('customerMarkers', JSON.stringify(data));
+                    loadMarkers();
+                    showNotification(`${data.length} data berhasil diimport!`);
+                    
+                    // Tutup modal
+                    closeModal();
+                } catch (error) {
+                    console.error('Import error:', error);
+                    showNotification(`Error: ${error.message}`, true);
+                }
+            };
+            
+            reader.onerror = function() {
+                showNotification('Gagal membaca file', true);
+            };
+            
+            reader.readAsText(file);
+        }
+        
+        // Fungsi untuk menampilkan modal import
+        function showImportModal() {
+            const modal = document.getElementById('data-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.querySelector('.modal-body');
+            const actionBtn = document.getElementById('action-btn');
+            
+            modalTitle.textContent = 'Import Data';
+            actionBtn.textContent = 'Import Data';
+            actionBtn.disabled = true;
+            
+            modalBody.innerHTML = `
+                <div class="file-input-container">
+                    <label for="import-file-input" class="file-input-label" id="file-input-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Pilih File JSON</span>
+                        <p class="file-name" id="file-name">Belum ada file dipilih</p>
+                    </label>
+                    <input type="file" id="import-file-input" class="file-input" accept=".json">
+                </div>
+                <div class="instructions">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Perhatian:</h3>
+                    <ul>
+                        <li>Data saat ini akan <strong>digantikan</strong> dengan data import</li>
+                        <li>Pastikan file berasal dari export aplikasi ini</li>
+                        <li>Format file harus JSON</li>
+                    </ul>
+                </div>
+            `;
+            
+            // Event listeners untuk file input
+            const fileInput = document.getElementById('import-file-input');
+            const fileName = document.getElementById('file-name');
+            const fileInputLabel = document.getElementById('file-input-label');
+            
+            fileInput.addEventListener('change', function(e) {
+                if (this.files && this.files.length > 0) {
+                    const file = this.files[0];
+                    fileName.textContent = file.name;
+                    actionBtn.disabled = false;
+                    
+                    // Tambahkan animasi feedback
+                    fileInputLabel.style.borderColor = '#4CAF50';
+                    fileInputLabel.style.backgroundColor = '#e8f5e9';
+                    setTimeout(() => {
+                        fileInputLabel.style.borderColor = '#ff5500';
+                        fileInputLabel.style.backgroundColor = '#f8f9fa';
+                    }, 1000);
+                }
+            });
+            
+            // Tampilkan modal
+            modal.style.display = 'flex';
+        }
+        
+        // Fungsi untuk menampilkan modal export
+        function showExportModal() {
+            const modal = document.getElementById('data-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.querySelector('.modal-body');
+            const actionBtn = document.getElementById('action-btn');
+            
+            modalTitle.textContent = 'Export Data';
+            actionBtn.textContent = 'Export Sekarang';
+            
+            modalBody.innerHTML = `
+                <div style="text-align: center; margin: 15px 0;">
+                    <i class="fas fa-file-export" style="font-size: 3rem; color: #ff5500;"></i>
+                    <p style="margin-top: 10px;">Export semua data pelanggan ke file JSON</p>
+                </div>
+                
+                <div class="export-options">
+                    <div class="export-option">
+                        <i class="fas fa-download"></i>
+                        <div class="export-info">
+                            <h3>Download File JSON</h3>
+                            <p>Simpan data ke perangkat Anda</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="instructions">
+                    <h3><i class="fas fa-info-circle"></i> Informasi:</h3>
+                    <ul>
+                        <li>File berisi semua data pelanggan</li>
+                        <li>Data dapat diimport kembali ke aplikasi</li>
+                        <li>Simpan file di tempat aman</li>
+                    </ul>
+                </div>
+            `;
+            
+            // Tampilkan modal
+            modal.style.display = 'flex';
+        }
+        
+        // Fungsi untuk menutup modal
+        function closeModal() {
+            const modal = document.getElementById('data-modal');
+            modal.style.display = 'none';
+        }
+        
         // Muat marker saat halaman dimuat
         document.addEventListener('DOMContentLoaded', function() {
             loadMarkers();
@@ -1463,6 +1829,31 @@
                 // Tampilkan petunjuk penggunaan untuk mobile
                 showNotification('Gunakan dua jari untuk zoom in/out pada peta');
             }
+            
+            // Tambahkan event listener untuk tombol import/export
+            document.getElementById('export-btn').addEventListener('click', showExportModal);
+            document.getElementById('import-btn').addEventListener('click', showImportModal);
+            
+            // Event listener untuk tombol modal
+            document.querySelector('.close-modal').addEventListener('click', closeModal);
+            document.getElementById('cancel-btn').addEventListener('click', closeModal);
+            
+            document.getElementById('action-btn').addEventListener('click', function() {
+                const modalTitle = document.getElementById('modal-title').textContent;
+                
+                if (modalTitle === 'Export Data') {
+                    exportData();
+                    closeModal();
+                } 
+                else if (modalTitle === 'Import Data') {
+                    const fileInput = document.getElementById('import-file-input');
+                    if (fileInput.files.length > 0) {
+                        importData(fileInput.files[0]);
+                    } else {
+                        showNotification('Pilih file terlebih dahulu', true);
+                    }
+                }
+            });
         });
     </script>
 </body>
